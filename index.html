@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Wordle Game</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Custom Wordle</h1>
+            <div class="game-controls">
+                <button id="new-game-btn"><i class="fas fa-redo"></i> New Game</button>
+                <button id="stats-btn"><i class="fas fa-chart-bar"></i> Stats</button>
+            </div>
+        </header>
+
+        <div id="difficulty-selection" class="game-section">
+            <h2>Select Difficulty</h2>
+            <div class="difficulty-buttons">
+                <button class="difficulty-btn" data-difficulty="easy">Easy (3-5 letters)</button>
+                <button class="difficulty-btn" data-difficulty="medium">Medium (5-7 letters)</button>
+                <button class="difficulty-btn" data-difficulty="hard">Hard (7-9 letters)</button>
+            </div>
+        </div>
+
+        <div id="game-board" class="game-section hidden">
+            <div id="game-status">
+                <div id="attempts-display">Attempts: <span id="attempts-count">0</span>/<span id="max-attempts">0</span></div>
+                <div id="difficulty-display">Difficulty: <span id="current-difficulty">-</span></div>
+            </div>
+            <div id="board-container"></div>
+            <div id="message-display"></div>
+        </div>
+
+        <div id="keyboard" class="game-section hidden">
+            <div class="keyboard-row">
+                <button class="keyboard-key" data-key="q">q</button>
+                <button class="keyboard-key" data-key="w">w</button>
+                <button class="keyboard-key" data-key="e">e</button>
+                <button class="keyboard-key" data-key="r">r</button>
+                <button class="keyboard-key" data-key="t">t</button>
+                <button class="keyboard-key" data-key="y">y</button>
+                <button class="keyboard-key" data-key="u">u</button>
+                <button class="keyboard-key" data-key="i">i</button>
+                <button class="keyboard-key" data-key="o">o</button>
+                <button class="keyboard-key" data-key="p">p</button>
+            </div>
+            <div class="keyboard-row">
+                <div class="keyboard-spacer half"></div>
+                <button class="keyboard-key" data-key="a">a</button>
+                <button class="keyboard-key" data-key="s">s</button>
+                <button class="keyboard-key" data-key="d">d</button>
+                <button class="keyboard-key" data-key="f">f</button>
+                <button class="keyboard-key" data-key="g">g</button>
+                <button class="keyboard-key" data-key="h">h</button>
+                <button class="keyboard-key" data-key="j">j</button>
+                <button class="keyboard-key" data-key="k">k</button>
+                <button class="keyboard-key" data-key="l">l</button>
+                <div class="keyboard-spacer half"></div>
+            </div>
+            <div class="keyboard-row">
+                <button class="keyboard-key wide" data-key="enter">Enter</button>
+                <button class="keyboard-key" data-key="z">z</button>
+                <button class="keyboard-key" data-key="x">x</button>
+                <button class="keyboard-key" data-key="c">c</button>
+                <button class="keyboard-key" data-key="v">v</button>
+                <button class="keyboard-key" data-key="b">b</button>
+                <button class="keyboard-key" data-key="n">n</button>
+                <button class="keyboard-key" data-key="m">m</button>
+                <button class="keyboard-key wide" data-key="backspace"><i class="fas fa-backspace"></i></button>
+            </div>
+        </div>
+
+        <div id="game-over" class="game-section hidden">
+            <h2 id="game-result"></h2>
+            <p id="correct-word"></p>
+            <div id="game-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Games Played</span>
+                    <span class="stat-value" id="games-played">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Win %</span>
+                    <span class="stat-value" id="win-percentage">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Current Streak</span>
+                    <span class="stat-value" id="current-streak">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Max Streak</span>
+                    <span class="stat-value" id="max-streak">0</span>
+                </div>
+            </div>
+            <button id="play-again-btn">Play Again</button>
+        </div>
+
+        <div id="stats-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close-modal">&times;</span>
+                <h2>Your Statistics</h2>
+                <div id="modal-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Games Played</span>
+                        <span class="stat-value" id="modal-games-played">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Win %</span>
+                        <span class="stat-value" id="modal-win-percentage">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Current Streak</span>
+                        <span class="stat-value" id="modal-current-streak">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Max Streak</span>
+                        <span class="stat-value" id="modal-max-streak">0</span>
+                    </div>
+                </div>
+                <div id="difficulty-stats">
+                    <h3>By Difficulty</h3>
+                    <div class="difficulty-stat">
+                        <span class="difficulty-label">Easy:</span>
+                        <span id="easy-wins">0</span> wins / <span id="easy-total">0</span> games
+                    </div>
+                    <div class="difficulty-stat">
+                        <span class="difficulty-label">Medium:</span>
+                        <span id="medium-wins">0</span> wins / <span id="medium-total">0</span> games
+                    </div>
+                    <div class="difficulty-stat">
+                        <span class="difficulty-label">Hard:</span>
+                        <span id="hard-wins">0</span> wins / <span id="hard-total">0</span> games
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="word-lists.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
