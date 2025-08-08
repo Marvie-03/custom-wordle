@@ -249,7 +249,7 @@ button:active {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 0.5em;
     margin-bottom: 30px;
     width: 100%;
     max-width: 500px;
@@ -258,12 +258,12 @@ button:active {
 
 .keyboard-row {
     display: flex;
-    gap: 6px;
+    gap: 0.5em;
     justify-content: center;
 }
 
 .keyboard-key {
-    height: 58px;
+    height: 3.2em;
     border-radius: 4px;
     border: none;
     background-color: #d3d6da;
@@ -276,7 +276,7 @@ button:active {
     display: flex;
     justify-content: center;
     align-items: center;
-    min-width: 43px;
+    min-width: 2em;
     flex: 1;
 }
 
@@ -439,6 +439,9 @@ button:active {
     .keyboard-key {
         height: 50px;
         font-size: 0.9rem;
+    }
+    #keyboard {
+        width:80%;
     }
 }
 
