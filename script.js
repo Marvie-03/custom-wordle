@@ -18,23 +18,27 @@ let statistics = {
 };
 
 // DOM Elements
-const difficultySection = document.getElementById('difficulty-selection');
+const difficultySelection = document.getElementById('difficulty-selection');
 const gameBoard = document.getElementById('game-board');
 const boardContainer = document.getElementById('board-container');
 const keyboard = document.getElementById('keyboard');
 const gameOverScreen = document.getElementById('game-over');
 const statsModal = document.getElementById('stats-modal');
-const statsButton = document.getElementById('stats-btn');
-const closeStatsButton = document.querySelector('.close-modal');
-const newGameButton = document.getElementById('new-game-btn');
-const playAgainButton = document.getElementById('play-again-btn');
-const gameOverMessage = document.getElementById('game-result');
-const gameOverWord = document.getElementById('correct-word');
+const statsBtn = document.getElementById('stats-btn');
+const closeStatsBtn = document.getElementById('close-stats');
+const newGameBtn = document.getElementById('new-game-btn');
+const playAgainBtn = document.getElementById('play-again-btn');
+const gameResult = document.getElementById('game-result');
+const correctWordDisplay = document.getElementById('correct-word');
 const difficultyButtons = document.querySelectorAll('.difficulty-btn');
 const messageDisplay = document.getElementById('message-display');
 const attemptsCount = document.getElementById('attempts-count');
 const maxAttemptsDisplay = document.getElementById('max-attempts');
 const currentDifficultyDisplay = document.getElementById('current-difficulty');
+const helpBtn = document.getElementById('help-btn');
+const howToPlayModal = document.getElementById('how-to-play-modal');
+const closeHowToPlayBtn = document.getElementById('close-how-to-play');
+const gameStatus = document.getElementById('game-status');
 
 // Initialize the game
 document.addEventListener('DOMContentLoaded', () => {
@@ -42,7 +46,19 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDifficultyButtons();
     setupKeyboard();
     setupModalButtons();
+    checkFirstTimeUser();
 });
+
+// Check if it's the first time user is playing
+function checkFirstTimeUser() {
+    const hasPlayedBefore = localStorage.getItem('hasPlayedBefore');
+    if (!hasPlayedBefore) {
+        // Show how to play modal for first-time users
+        howToPlayModal.classList.remove('hidden');
+        // Set flag in localStorage
+        localStorage.setItem('hasPlayedBefore', 'true');
+    }
+}
 
 // Load saved statistics from localStorage
 function loadStatistics() {
@@ -203,8 +219,8 @@ function startGame(difficulty, wordLength) {
     
     console.log(`Target word: ${targetWord}`); // For debugging
     
-    // Hide difficulty section and show game section
-    difficultySection.classList.add('hidden');
+    // Hide difficulty selection and show game board
+    difficultySelection.classList.add('hidden');
     gameBoard.classList.remove('hidden');
     keyboard.classList.remove('hidden');
     gameOverScreen.classList.add('hidden');
@@ -364,8 +380,8 @@ function resetKeyboardColors() {
 // Show game over screen
 function showGameOverScreen(won) {
     setTimeout(() => {
-        gameOverMessage.textContent = won ? 'You Won!' : 'Game Over';
-        gameOverWord.textContent = `The word was: ${targetWord.toUpperCase()}`;
+        gameResult.textContent = won ? 'You Won!' : 'Game Over';
+    correctWordDisplay.textContent = `The word was: ${targetWord.toUpperCase()}`;
         gameOverScreen.classList.remove('hidden');
     }, 1000);
 }
@@ -464,23 +480,34 @@ function updateStatisticsDisplay() {
 
 // Setup modal buttons
 function setupModalButtons() {
-    statsButton.addEventListener('click', () => {
+    // Stats modal
+    statsBtn.addEventListener('click', () => {
+        updateStatisticsDisplay();
         statsModal.classList.remove('hidden');
     });
     
-    closeStatsButton.addEventListener('click', () => {
+    closeStatsBtn.addEventListener('click', () => {
         statsModal.classList.add('hidden');
     });
     
-    newGameButton.addEventListener('click', () => {
-        difficultySection.classList.remove('hidden');
-        gameBoard.classList.add('hidden');
+    // How to Play modal
+    helpBtn.addEventListener('click', () => {
+        howToPlayModal.classList.remove('hidden');
+    });
+    
+    closeHowToPlayBtn.addEventListener('click', () => {
+        howToPlayModal.classList.add('hidden');
+    });
+    
+    newGameBtn.addEventListener('click', () => {
+        difficultySelection.classList.remove('hidden');
+        document.getElementById('game-board').classList.add('hidden');
         keyboard.classList.add('hidden');
         gameOverScreen.classList.add('hidden');
     });
     
-    playAgainButton.addEventListener('click', () => {
-        difficultySection.classList.remove('hidden');
+    playAgainBtn.addEventListener('click', () => {
+        difficultySelection.classList.remove('hidden');
         gameOverScreen.classList.add('hidden');
     });
 }

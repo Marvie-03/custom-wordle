@@ -1,13 +1,15 @@
 /* Global Styles */
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap');
+
 * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: 'Arial', sans-serif;
+    font-family: 'Montserrat', sans-serif;
 }
 
 body {
-    background-color: #f5f5f5;
+    background-color: #ffffff;
     color: #1a1a1a;
     min-height: 100vh;
     display: flex;
@@ -46,18 +48,18 @@ h1 {
 }
 
 button {
-    background-color: #538d4e;
+    background-color: #808080;
     color: white;
     border: none;
     border-radius: 4px;
     padding: 10px 15px;
     font-size: 1rem;
     cursor: pointer;
-    transition: background-color 0.3s, transform 0.1s;
+    transition: background 0.3s, transform 0.1s;
 }
 
 button:hover {
-    background-color: #437a42;
+    background: linear-gradient(45deg, #4b6cb7 0%, #182848 100%)
 }
 
 button:active {
@@ -116,15 +118,18 @@ button:active {
 }
 
 .difficulty-btn[data-difficulty="easy"] {
-    background-color: #538d4e; /* Green */
+    background-color: #538d4e;
+    /* Green */
 }
 
 .difficulty-btn[data-difficulty="medium"] {
-    background-color: #b59f3b; /* Yellow/Orange */
+    background-color: #b59f3b;
+    /* Yellow/Orange */
 }
 
 .difficulty-btn[data-difficulty="hard"] {
-    background-color: #c15b5b; /* Red */
+    background-color: #c15b5b;
+    /* Red */
 }
 
 /* Game Board Styles */
@@ -135,9 +140,11 @@ button:active {
     gap: 5px;
     margin-bottom: 30px;
 }
-.row{
+
+.row {
     display: flex;
 }
+
 .board-row {
     display: flex;
     gap: 5px;
@@ -209,9 +216,11 @@ button:active {
     0% {
         transform: rotateX(0);
     }
+
     50% {
         transform: rotateX(90deg);
     }
+
     100% {
         transform: rotateX(0);
     }
@@ -222,9 +231,26 @@ button:active {
 }
 
 @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-    20%, 40%, 60%, 80% { transform: translateX(5px); }
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    10%,
+    30%,
+    50%,
+    70%,
+    90% {
+        transform: translateX(-5px);
+    }
+
+    20%,
+    40%,
+    60%,
+    80% {
+        transform: translateX(5px);
+    }
 }
 
 .pop-animation {
@@ -232,8 +258,15 @@ button:active {
 }
 
 @keyframes pop {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.1); }
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
 }
 
 #message-display {
@@ -281,7 +314,7 @@ button:active {
 }
 
 .keyboard-key.wide {
-    min-width: 65px;
+    min-width: 4rem;
     flex: 1.5;
     font-size: 0.9rem;
 }
@@ -377,7 +410,7 @@ button:active {
     background-color: white;
     padding: 25px;
     border-radius: 8px;
-    max-width: 400px;
+    max-width: 500px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
@@ -398,6 +431,76 @@ button:active {
     flex-wrap: wrap;
     gap: 15px;
     margin: 20px 0;
+}
+
+/* How to Play Modal */
+.how-to-play-content {
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.how-to-play-content h3 {
+    margin: 20px 0 10px;
+    border-bottom: 1px solid #d3d6da;
+    padding-bottom: 5px;
+}
+
+.how-to-play-content p {
+    margin-bottom: 15px;
+}
+
+.how-to-play-content ul {
+    margin-left: 20px;
+    margin-bottom: 15px;
+}
+
+.how-to-play-content li {
+    margin-bottom: 8px;
+}
+
+.examples {
+    margin: 20px 0;
+}
+
+.example {
+    margin-bottom: 20px;
+}
+
+.example-row {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+    justify-content: center;
+}
+
+.example-tile {
+    width: 40px;
+    height: 40px;
+    border: 2px solid #d3d6da;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.example-tile.correct {
+    background-color: #6aaa64;
+    color: white;
+    border-color: #6aaa64;
+}
+
+.example-tile.present {
+    background-color: #c9b458;
+    color: white;
+    border-color: #c9b458;
+}
+
+.example-tile.absent {
+    background-color: #787c7e;
+    color: white;
+    border-color: #787c7e;
 }
 
 #difficulty-stats {
@@ -440,8 +543,9 @@ button:active {
         height: 50px;
         font-size: 0.9rem;
     }
+
     #keyboard {
-        width:80%;
+        width: 80%;
     }
 }
 

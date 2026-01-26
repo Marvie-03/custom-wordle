@@ -14,6 +14,7 @@
             <div class="game-controls">
                 <button id="new-game-btn"><i class="fas fa-redo"></i> New Game</button>
                 <button id="stats-btn"><i class="fas fa-chart-bar"></i> Stats</button>
+                <button id="help-btn"><i class="fas fa-question-circle"></i> How to Play</button>
             </div>
         </header>
 
@@ -100,7 +101,7 @@
 
         <div id="stats-modal" class="modal hidden">
             <div class="modal-content">
-                <span class="close-modal">&times;</span>
+                <span class="close-modal" id="close-stats">&times;</span>
                 <h2>Your Statistics</h2>
                 <div id="modal-stats">
                     <div class="stat-item">
@@ -134,6 +135,67 @@
                         <span class="difficulty-label">Hard:</span>
                         <span id="hard-wins">0</span> wins / <span id="hard-total">0</span> games
                     </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="how-to-play-modal" class="modal hidden">
+            <div class="modal-content">
+                <span class="close-modal" id="close-how-to-play">&times;</span>
+                <h2>How to Play</h2>
+                <div class="how-to-play-content">
+                    <p>Guess the word in the given number of tries.</p>
+                    <ul>
+                        <li>Each guess must be a valid word from our word list.</li>
+                        <li>The color of the tiles will change to show how close your guess was.</li>
+                    </ul>
+                    
+                    <div class="examples">
+                        <h3>Examples</h3>
+                        <div class="example">
+                            <div class="example-row">
+                                <div class="example-tile correct">W</div>
+                                <div class="example-tile">O</div>
+                                <div class="example-tile">R</div>
+                                <div class="example-tile">D</div>
+                                <div class="example-tile">S</div>
+                            </div>
+                            <p><strong>W</strong> is in the word and in the correct spot.</p>
+                        </div>
+                        
+                        <div class="example">
+                            <div class="example-row">
+                                <div class="example-tile">P</div>
+                                <div class="example-tile present">I</div>
+                                <div class="example-tile">L</div>
+                                <div class="example-tile">O</div>
+                                <div class="example-tile">T</div>
+                            </div>
+                            <p><strong>I</strong> is in the word but in the wrong spot.</p>
+                        </div>
+                        
+                        <div class="example">
+                            <div class="example-row">
+                                <div class="example-tile">V</div>
+                                <div class="example-tile">A</div>
+                                <div class="example-tile">G</div>
+                                <div class="example-tile absent">U</div>
+                                <div class="example-tile">E</div>
+                            </div>
+                            <p><strong>U</strong> is not in the word in any spot.</p>
+                        </div>
+                    </div>
+                    
+                    <h3>Difficulty Levels</h3>
+                    <ul>
+                        <li><strong>Easy:</strong> 3-5 letter words</li>
+                        <li><strong>Medium:</strong> 5-7 letter words</li>
+                        <li><strong>Hard:</strong> 7-9 letter words</li>
+                    </ul>
+                    
+                    <p>You have 6 attempts to guess the word, regardless of difficulty.</p>
+                    <p>A new word is selected each time you play.</p>
+                    <p>Good luck!</p>
                 </div>
             </div>
         </div>
