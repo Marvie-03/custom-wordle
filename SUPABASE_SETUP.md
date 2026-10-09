@@ -6,8 +6,9 @@ The training game continues to work without Supabase. Competition mode requires 
 
 1. Create a project at [supabase.com](https://supabase.com/).
 2. In **Project Settings → API**, copy the project URL and the **anon/public** key.
-3. In **Authentication → Providers**, enable Email and Google as desired. Google OAuth also needs the provider's client ID/secret and the Supabase callback URL configured in the Google developer console.
-4. Add the project URL and anon key to `supabase-config.js`. These are public browser values; never put the service-role key in frontend files.
+3. In **Authentication → URL Configuration**, set **Site URL** to `https://custom-wordle-eta.vercel.app`. Add `https://custom-wordle-eta.vercel.app/**` under **Redirect URLs**. If testing locally, add `http://localhost:3000/**` as an additional redirect; do not leave localhost as the only configured URL.
+4. In **Authentication → Providers**, enable Email and Google as desired. Google OAuth also needs the provider's client ID/secret and the Supabase callback URL (`https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`) configured as an authorized redirect URI in the Google developer console. This Google-to-Supabase callback is different from the Supabase-to-app redirect URL configured in step 3.
+5. Add the project URL and anon key to `supabase-config.js`. These are public browser values; never put the service-role key in frontend files.
 
 ## 2. Apply the database migration
 

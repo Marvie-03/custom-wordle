@@ -632,7 +632,7 @@ function setupCompetition() {
     document.getElementById('google-sign-in').addEventListener('click', async () => {
         const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo: window.location.href.split('#')[0] }
+            options: { redirectTo: `${window.location.origin}/` }
         });
         if (error) setCompetitionMessage(error.message);
     });
@@ -670,6 +670,7 @@ function setupCompetition() {
 
     supabaseClient.auth.onAuthStateChange((_event, session) => {
         setTimeout(() => {
+            if (session) cleanOAuthCallbackUrl();
             updateAuthUI(session);
             if (session) loadProfile();
         }, 0);
@@ -679,9 +680,17 @@ function setupCompetition() {
             setCompetitionMessage(error.message);
             return;
         }
+        if (data.session) cleanOAuthCallbackUrl();
         updateAuthUI(data.session);
         if (data.session) loadProfile();
     });
+}
+
+function cleanOAuthCallbackUrl() {
+    if (!window.location.hash || !/(?:access_token|refresh_token|provider_token|code)=/.test(window.location.hash)) {
+        return;
+    }
+    window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`);
 }
 
 function updateAuthUI(session) {
