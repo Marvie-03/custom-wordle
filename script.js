@@ -9,6 +9,10 @@ let currentAttempt = "";
 let maxAttempts = 6;
 let gameOver = false;
 let gameWon = false;
+let competitionMode = false;
+let competitionRequestInProgress = false;
+let competitionState = null;
+let profileUsername = '';
 let statistics = {
     gamesPlayed: 0,
     gamesWon: 0,
@@ -39,6 +43,18 @@ const helpBtn = document.getElementById('help-btn');
 const howToPlayModal = document.getElementById('how-to-play-modal');
 const closeHowToPlayBtn = document.getElementById('close-how-to-play');
 const gameStatus = document.getElementById('game-status');
+const competitionHome = document.getElementById('competition-home');
+const competitionStatus = document.getElementById('competition-status');
+const competitionStartBtn = document.getElementById('competition-start-btn');
+const competitionResultScore = document.getElementById('competition-result-score');
+const competitionProfile = document.getElementById('competition-profile');
+const competitionAuth = document.getElementById('competition-auth');
+const profileModal = document.getElementById('profile-modal');
+const leaderboardModal = document.getElementById('leaderboard-modal');
+const supabaseConfig = window.WORDLE_SUPABASE_CONFIG || {};
+const supabaseClient = window.supabase && supabaseConfig.url && supabaseConfig.anonKey
+    ? window.supabase.createClient(supabaseConfig.url, supabaseConfig.anonKey)
+    : null;
 
 // Initialize the game
 document.addEventListener('DOMContentLoaded', () => {
@@ -46,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupDifficultyButtons();
     setupKeyboard();
     setupModalButtons();
+    setupCompetition();
     checkFirstTimeUser();
 });
 
@@ -79,32 +96,28 @@ function setupDifficultyButtons() {
     difficultyButtons.forEach(button => {
         button.addEventListener('click', () => {
             const difficulty = button.dataset.difficulty;
-            let wordLength;
-            
-            // Determine word length based on difficulty
-            switch(difficulty) {
-                case 'easy':
-                    // For easy, choose from 3, 4, or 5 letter words
-                    const easyLengths = Object.keys(wordLists.easy).map(Number);
-                    wordLength = easyLengths[Math.floor(Math.random() * easyLengths.length)];
-                    break;
-                case 'medium':
-                    // For medium, choose from 5, 6, or 7 letter words
-                    const mediumLengths = Object.keys(wordLists.medium).map(Number);
-                    wordLength = mediumLengths[Math.floor(Math.random() * mediumLengths.length)];
-                    break;
-                case 'hard':
-                    // For hard, choose from 7, 8, or 9 letter words
-                    const hardLengths = Object.keys(wordLists.hard).map(Number);
-                    wordLength = hardLengths[Math.floor(Math.random() * hardLengths.length)];
-                    break;
-                default:
-                    wordLength = 5;
+            const lengthsByDifficulty = {
+                easy: [3, 4, 5],
+                medium: [5, 6, 7],
+                hard: [7, 8, 9]
+            };
+            const availableLengths = (lengthsByDifficulty[difficulty] || [])
+                .filter(length => getTrainingWords(difficulty, length).length > 0);
+            if (!availableLengths.length) {
+                showMessage('No training words are available for this difficulty.');
+                return;
             }
-            
+            const wordLength = availableLengths[Math.floor(Math.random() * availableLengths.length)];
             startGame(difficulty, wordLength);
         });
     });
+}
+
+function getTrainingWords(difficulty, wordLength) {
+    return [...new Set(Object.values(wordLists[difficulty] || {})
+        .flat()
+        .map(word => word.toLowerCase())
+        .filter(word => word.length === wordLength))];
 }
 
 // Setup keyboard event listeners
@@ -124,7 +137,7 @@ function setupKeyboard() {
 
 // Handle physical keyboard key press
 function handleKeyPress(event) {
-    if (gameOver || !currentDifficulty) return;
+    if (gameOver || (!currentDifficulty && !competitionMode) || competitionRequestInProgress) return;
     
     const key = event.key.toLowerCase();
     
@@ -139,7 +152,7 @@ function handleKeyPress(event) {
 
 // Handle virtual keyboard key press
 function handleVirtualKeyPress(key) {
-    if (gameOver || !currentDifficulty) return;
+    if (gameOver || (!currentDifficulty && !competitionMode) || competitionRequestInProgress) return;
     
     if (key === 'enter') {
         submitGuess();
@@ -168,13 +181,18 @@ function removeLastLetter() {
 
 // Submit current guess
 function submitGuess() {
+    if (competitionMode) {
+        submitCompetitionGuess();
+        return;
+    }
+
     if (currentAttempt.length !== currentWordLength) {
         showMessage(`Word must be ${currentWordLength} letters long`);
         return;
     }
     
     // Check if word is in the word list
-    const wordList = wordLists[currentDifficulty][currentWordLength];
+    const wordList = getTrainingWords(currentDifficulty, currentWordLength);
     if (!wordList.includes(currentAttempt)) {
         showMessage('Not in word list');
         return;
@@ -206,6 +224,8 @@ function submitGuess() {
 // Start a new game with selected difficulty and word length
 function startGame(difficulty, wordLength) {
     // Reset game state
+    competitionMode = false;
+    competitionState = null;
     currentDifficulty = difficulty;
     currentWordLength = wordLength;
     attempts = [];
@@ -214,10 +234,8 @@ function startGame(difficulty, wordLength) {
     gameWon = false;
     
     // Select a random word from the word list
-    const wordList = wordLists[difficulty][wordLength];
+    const wordList = getTrainingWords(difficulty, wordLength);
     targetWord = wordList[Math.floor(Math.random() * wordList.length)];
-    
-    console.log(`Target word: ${targetWord}`); // For debugging
     
     // Hide difficulty selection and show game board
     difficultySelection.classList.add('hidden');
@@ -252,7 +270,9 @@ function createGameBoard() {
     // Update attempts display
     attemptsCount.textContent = '0';
     maxAttemptsDisplay.textContent = maxAttempts;
-    currentDifficultyDisplay.textContent = currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1);
+    currentDifficultyDisplay.textContent = competitionMode
+        ? 'Daily Competition'
+        : currentDifficulty.charAt(0).toUpperCase() + currentDifficulty.slice(1);
     
     updateGameBoard();
 }
@@ -270,6 +290,28 @@ function updateGameBoard() {
         });
     });
     
+    if (competitionMode && competitionState) {
+        for (let i = 0; i < competitionState.guesses.length; i++) {
+            const tiles = rows[i].querySelectorAll('.board-tile');
+            const guess = competitionState.guesses[i];
+            const feedback = competitionState.feedback[i];
+            for (let j = 0; j < guess.length; j++) {
+                tiles[j].textContent = guess[j].toUpperCase();
+                tiles[j].classList.add(feedback[j]);
+            }
+        }
+
+        if (!competitionState.completed && competitionState.guesses.length < maxAttempts) {
+            const tiles = rows[competitionState.guesses.length].querySelectorAll('.board-tile');
+            for (let i = 0; i < currentAttempt.length; i++) {
+                tiles[i].textContent = currentAttempt[i].toUpperCase();
+                tiles[i].classList.add('filled');
+            }
+        }
+        attemptsCount.textContent = competitionState.guesses.length;
+        return;
+    }
+
     // Fill in completed attempts with correct colors
     for (let i = 0; i < attempts.length; i++) {
         const row = rows[i];
@@ -330,6 +372,25 @@ function updateGameBoard() {
 function updateKeyboardColors() {
     const keys = keyboard.querySelectorAll('.keyboard-key');
     const letterStatus = {};
+
+    if (competitionMode && competitionState) {
+        competitionState.guesses.forEach((guess, rowIndex) => {
+            guess.split('').forEach((letter, index) => {
+                const status = competitionState.feedback[rowIndex][index];
+                const priority = { unused: 0, absent: 1, present: 2, correct: 3 };
+                if (!letterStatus[letter] || priority[status] > priority[letterStatus[letter]]) {
+                    letterStatus[letter] = status;
+                }
+            });
+        });
+        keys.forEach(key => {
+            const letter = key.dataset.key;
+            if (!letter || !/^[a-z]$/.test(letter)) return;
+            key.classList.remove('correct', 'present', 'absent');
+            if (letterStatus[letter]) key.classList.add(letterStatus[letter]);
+        });
+        return;
+    }
     
     // Initialize all letters as unused
     keys.forEach(key => {
@@ -381,7 +442,16 @@ function resetKeyboardColors() {
 function showGameOverScreen(won) {
     setTimeout(() => {
         gameResult.textContent = won ? 'You Won!' : 'Game Over';
-    correctWordDisplay.textContent = `The word was: ${targetWord.toUpperCase()}`;
+        correctWordDisplay.textContent = competitionMode
+            ? 'Today’s competition puzzle is complete.'
+            : `The word was: ${targetWord.toUpperCase()}`;
+        competitionResultScore.classList.toggle('hidden', !competitionMode);
+        if (competitionMode) {
+            competitionResultScore.textContent = `${competitionState.score} ${competitionState.score === 1 ? 'point' : 'points'} earned`;
+            document.getElementById('game-stats').classList.add('hidden');
+        } else {
+            document.getElementById('game-stats').classList.remove('hidden');
+        }
         gameOverScreen.classList.remove('hidden');
     }, 1000);
 }
@@ -500,6 +570,7 @@ function setupModalButtons() {
     });
     
     newGameBtn.addEventListener('click', () => {
+        setGameMode('training');
         difficultySelection.classList.remove('hidden');
         document.getElementById('game-board').classList.add('hidden');
         keyboard.classList.add('hidden');
@@ -507,9 +578,312 @@ function setupModalButtons() {
     });
     
     playAgainBtn.addEventListener('click', () => {
+        setGameMode('training');
         difficultySelection.classList.remove('hidden');
         gameOverScreen.classList.add('hidden');
     });
+
+    document.getElementById('profile-btn').addEventListener('click', () => {
+        profileModal.classList.remove('hidden');
+    });
+    document.getElementById('close-profile').addEventListener('click', () => {
+        profileModal.classList.add('hidden');
+    });
+    document.getElementById('leaderboard-btn').addEventListener('click', openLeaderboard);
+    document.getElementById('close-leaderboard').addEventListener('click', () => {
+        leaderboardModal.classList.add('hidden');
+    });
+}
+
+function setGameMode(mode) {
+    const isCompetition = mode === 'competition';
+    competitionHome.classList.toggle('hidden', !isCompetition);
+    difficultySelection.classList.toggle('hidden', isCompetition);
+    if (gameBoard) gameBoard.classList.add('hidden');
+    keyboard.classList.add('hidden');
+    gameOverScreen.classList.add('hidden');
+    document.querySelectorAll('.mode-btn').forEach(button => {
+        const active = button.dataset.mode === mode;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+    });
+    competitionMode = false;
+}
+
+function setupCompetition() {
+    competitionStartBtn.addEventListener('click', startCompetitionGame);
+    document.querySelectorAll('.mode-btn').forEach(button => {
+        button.addEventListener('click', () => setGameMode(button.dataset.mode));
+    });
+    document.getElementById('supabase-notice').classList.toggle('hidden', Boolean(supabaseClient));
+    competitionAuth.classList.toggle('hidden', !supabaseClient);
+    document.getElementById('competition-date').textContent = new Date().toLocaleDateString(undefined, {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZoneName: 'short'
+    });
+    if (!supabaseClient) {
+        competitionStatus.textContent = 'Configure Supabase to sign in and play.';
+        return;
+    }
+
+    document.getElementById('google-sign-in').addEventListener('click', async () => {
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo: window.location.href.split('#')[0] }
+        });
+        if (error) setCompetitionMessage(error.message);
+    });
+
+    document.getElementById('email-sign-in').addEventListener('click', async () => {
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) setCompetitionMessage(error.message);
+    });
+
+    document.getElementById('email-sign-up').addEventListener('click', async () => {
+        const username = document.getElementById('auth-username').value.trim();
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+            setCompetitionMessage('Username must be 3–20 letters, numbers, or underscores.');
+            return;
+        }
+        const { error } = await supabaseClient.auth.signUp({
+            email,
+            password,
+            options: { data: { username } }
+        });
+        if (error) setCompetitionMessage(error.message);
+        else setCompetitionMessage('Account created. Check your email if confirmation is enabled.');
+    });
+
+    document.getElementById('save-profile-btn').addEventListener('click', saveProfile);
+    document.getElementById('sign-out-btn').addEventListener('click', async () => {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) setCompetitionMessage(error.message);
+        else profileModal.classList.add('hidden');
+    });
+
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+        setTimeout(() => {
+            updateAuthUI(session);
+            if (session) loadProfile();
+        }, 0);
+    });
+    supabaseClient.auth.getSession().then(({ data, error }) => {
+        if (error) {
+            setCompetitionMessage(error.message);
+            return;
+        }
+        updateAuthUI(data.session);
+        if (data.session) loadProfile();
+    });
+}
+
+function updateAuthUI(session) {
+    competitionAuth.classList.toggle('hidden', Boolean(session));
+    competitionProfile.classList.toggle('hidden', !session);
+    document.getElementById('signed-out-profile').classList.toggle('hidden', Boolean(session));
+    document.getElementById('signed-in-profile').classList.toggle('hidden', !session);
+    if (!session) {
+        document.getElementById('profile-username-display').textContent = 'Player';
+        document.getElementById('season-points').textContent = '—';
+        competitionStatus.textContent = 'Sign in to play today’s puzzle.';
+    }
+}
+
+async function loadProfile() {
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError || !session) return;
+    const { data, error } = await supabaseClient
+        .from('profiles')
+        .select('username')
+        .eq('id', session.user.id)
+        .single();
+    if (error) {
+        setCompetitionMessage(error.message);
+        return;
+    }
+    document.getElementById('profile-username-display').textContent = data.username;
+    document.getElementById('profile-username').value = data.username;
+    profileUsername = data.username;
+    refreshSeasonPoints().catch(error => setCompetitionMessage(error.message));
+    document.getElementById('competition-date').textContent = new Date().toLocaleDateString(undefined, {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZoneName: 'short'
+    });
+}
+
+async function saveProfile() {
+    const username = document.getElementById('profile-username').value.trim();
+    if (!/^[A-Za-z0-9_]{3,20}$/.test(username)) {
+        setCompetitionMessage('Username must be 3–20 letters, numbers, or underscores.');
+        return;
+    }
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError || !session) {
+        setCompetitionMessage(sessionError ? sessionError.message : 'Sign in to update your profile.');
+        return;
+    }
+    const { error } = await supabaseClient
+        .from('profiles')
+        .update({ username })
+        .eq('id', session.user.id);
+    if (error) {
+        setCompetitionMessage(error.code === '23505' ? 'That username is already taken.' : error.message);
+        return;
+    }
+    document.getElementById('profile-username-display').textContent = username;
+    profileUsername = username;
+    setCompetitionMessage('Username updated.');
+}
+
+async function refreshSeasonPoints() {
+    const season = new Date().toISOString().slice(0, 7);
+    const result = await competitionRequest({ action: 'leaderboard', season });
+    const player = result.entries.find(entry => entry.isYou);
+    document.getElementById('season-points').textContent = player ? player.points : '0';
+}
+
+async function competitionRequest(payload) {
+    const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!session) throw new Error('Sign in to play competition.');
+    const response = await fetch(`${supabaseConfig.url}/functions/v1/competition`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'apikey': supabaseConfig.anonKey,
+            'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify(payload)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'The competition request failed.');
+    return result;
+}
+
+async function startCompetitionGame() {
+    if (!supabaseClient) {
+        setCompetitionMessage('Competition setup is not finished yet.');
+        return;
+    }
+    if (!profileUsername || profileUsername.startsWith('player_')) {
+        setCompetitionMessage('Choose your unique username in Profile before competing.');
+        profileModal.classList.remove('hidden');
+        return;
+    }
+    competitionRequestInProgress = true;
+    competitionStartBtn.disabled = true;
+    setCompetitionMessage('Loading today’s puzzle…');
+    try {
+        competitionState = await competitionRequest({ action: 'start' });
+        competitionMode = true;
+        currentDifficulty = null;
+        currentWordLength = 5;
+        attempts = [...competitionState.guesses];
+        currentAttempt = '';
+        maxAttempts = competitionState.maxGuesses;
+        gameOver = competitionState.completed;
+        gameWon = competitionState.won;
+        difficultySelection.classList.add('hidden');
+        competitionHome.classList.add('hidden');
+        gameBoard.classList.remove('hidden');
+        keyboard.classList.remove('hidden');
+        gameOverScreen.classList.add('hidden');
+        document.getElementById('game-stats').classList.add('hidden');
+        competitionResultScore.classList.add('hidden');
+        createGameBoard();
+        updateKeyboardColors();
+        setCompetitionMessage(competitionState.completed
+            ? `Today's puzzle is complete — ${competitionState.score} points earned.`
+            : 'Your competition game is in progress.');
+        if (competitionState.completed) showGameOverScreen(competitionState.won);
+    } catch (error) {
+        setCompetitionMessage(error.message);
+    } finally {
+        competitionRequestInProgress = false;
+        competitionStartBtn.disabled = false;
+    }
+}
+
+async function submitCompetitionGuess() {
+    if (!competitionMode || !competitionState || competitionRequestInProgress) return;
+    if (currentAttempt.length !== currentWordLength) {
+        showMessage(`Word must be ${currentWordLength} letters long`);
+        return;
+    }
+    competitionRequestInProgress = true;
+    try {
+        competitionState = await competitionRequest({ action: 'guess', guess: currentAttempt });
+        attempts = [...competitionState.guesses];
+        currentAttempt = '';
+        updateGameBoard();
+        updateKeyboardColors();
+        if (competitionState.completed) {
+            gameWon = competitionState.won;
+            gameOver = true;
+            showGameOverScreen(gameWon);
+            setCompetitionMessage(`Puzzle complete — ${competitionState.score} points earned.`);
+            refreshSeasonPoints().catch(error => setCompetitionMessage(error.message));
+        }
+    } catch (error) {
+        showMessage(error.message);
+        setCompetitionMessage(error.message);
+    } finally {
+        competitionRequestInProgress = false;
+    }
+}
+
+async function openLeaderboard() {
+    leaderboardModal.classList.remove('hidden');
+    const entriesElement = document.getElementById('leaderboard-entries');
+    const statusElement = document.getElementById('leaderboard-status');
+    entriesElement.replaceChildren();
+    if (!supabaseClient) {
+        statusElement.textContent = 'Configure Supabase to load leaderboard scores.';
+        return;
+    }
+    statusElement.textContent = 'Loading leaderboard…';
+    const season = new Date().toISOString().slice(0, 7);
+    document.getElementById('leaderboard-season').textContent = season;
+    try {
+        const result = await competitionRequest({ action: 'leaderboard', season });
+        const player = result.entries.find(entry => entry.isYou);
+        document.getElementById('season-points').textContent = player ? player.points : '0';
+        result.entries.forEach(entry => {
+            const row = document.createElement('li');
+            row.className = `leaderboard-row${entry.isYou ? ' you' : ''}`;
+            for (const value of [entry.rank, entry.username, entry.points]) {
+                const cell = document.createElement('span');
+                cell.textContent = value;
+                row.appendChild(cell);
+            }
+            entriesElement.appendChild(row);
+        });
+        statusElement.textContent = result.entries.length ? '' : 'No completed games this season yet.';
+    } catch (error) {
+        statusElement.textContent = error.message;
+    }
+}
+
+function setCompetitionMessage(message) {
+    if (competitionStatus) competitionStatus.textContent = message;
+    const authFeedback = document.getElementById('auth-feedback');
+    const profileFeedback = document.getElementById('profile-feedback');
+    if (authFeedback && !competitionAuth.classList.contains('hidden')) authFeedback.textContent = message;
+    if (profileFeedback && !profileModal.classList.contains('hidden')) profileFeedback.textContent = message;
+    const leaderboardStatus = document.getElementById('leaderboard-status');
+    if (leaderboardModal && !leaderboardModal.classList.contains('hidden') && leaderboardStatus) {
+        leaderboardStatus.textContent = message;
+    }
 }
 
 // Show message to user

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Custom Wordle Game</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -12,13 +12,63 @@
         <header>
             <h1>Custom Wordle</h1>
             <div class="game-controls">
-                <button id="new-game-btn"><i class="fas fa-redo"></i> New Game</button>
-                <button id="stats-btn"><i class="fas fa-chart-bar"></i> Stats</button>
-                <button id="help-btn"><i class="fas fa-question-circle"></i> How to Play</button>
+                <button id="new-game-btn" class="chrome-button"><i class="fas fa-dumbbell"></i> Training</button>
+                <button id="profile-btn" class="chrome-button"><i class="fas fa-user"></i> Profile</button>
+                <button id="stats-btn" class="chrome-button"><i class="fas fa-chart-bar"></i> Stats</button>
+                <button id="help-btn" class="chrome-button"><i class="fas fa-question-circle"></i> How to Play</button>
             </div>
         </header>
 
-        <div id="difficulty-selection" class="game-section">
+        <nav class="mode-switch" aria-label="Game mode">
+            <button class="mode-btn active" data-mode="competition" aria-pressed="true">Daily Competition</button>
+            <button class="mode-btn" data-mode="training" aria-pressed="false">Training</button>
+        </nav>
+
+        <section id="competition-home" class="game-section competition-card">
+            <div class="competition-heading">
+                <div>
+                    <p class="eyebrow">MONTHLY SEASON · DAILY PUZZLE</p>
+                    <h2>Compete today</h2>
+                    <p class="muted-copy">One shared puzzle. Six guesses. Points add up all month.</p>
+                </div>
+                <div class="season-points"><span id="season-points">—</span><small>SEASON POINTS</small></div>
+            </div>
+            <div class="competition-meta">
+                <span><i class="fas fa-calendar-day"></i> <span id="competition-date">UTC puzzle</span></span>
+                <span><i class="fas fa-clock"></i> Resets at 00:00 UTC</span>
+            </div>
+            <div id="competition-auth" class="auth-panel">
+                <h3>Sign in to compete</h3>
+                <p class="muted-copy">Choose a unique username for your leaderboard profile.</p>
+                <button id="google-sign-in" class="chrome-button google-button"><i class="fab fa-google"></i> Continue with Google</button>
+                <div class="auth-divider"><span>or use email</span></div>
+                <label for="auth-username">Username <small>(for new accounts)</small></label>
+                <input id="auth-username" type="text" minlength="3" maxlength="20" autocomplete="username" placeholder="your_name">
+                <label for="auth-email">Email</label>
+                <input id="auth-email" type="email" autocomplete="email" placeholder="you@example.com">
+                <label for="auth-password">Password</label>
+                <input id="auth-password" type="password" autocomplete="current-password" minlength="8" placeholder="At least 8 characters">
+                <div class="auth-actions">
+                    <button id="email-sign-in" class="chrome-button">Sign in</button>
+                    <button id="email-sign-up" class="chrome-button primary-button">Create account</button>
+                </div>
+                <p id="auth-feedback" class="muted-copy" role="status"></p>
+            </div>
+            <div id="competition-profile" class="profile-summary hidden">
+                <div>
+                    <span class="eyebrow">PLAYING AS</span>
+                    <strong id="profile-username-display">Player</strong>
+                    <span id="competition-status" class="muted-copy" role="status">Ready to play</span>
+                </div>
+                <div class="competition-actions">
+                    <button id="competition-start-btn" class="chrome-button primary-button">Play today's puzzle</button>
+                    <button id="leaderboard-btn" class="chrome-button"><i class="fas fa-trophy"></i> Leaderboard</button>
+                </div>
+            </div>
+            <p id="supabase-notice" class="setup-notice hidden">Competition setup is required. Configure <code>supabase-config.js</code> and follow <code>SUPABASE_SETUP.md</code>.</p>
+        </section>
+
+        <div id="difficulty-selection" class="game-section hidden">
             <h2>Select Difficulty</h2>
             <div class="difficulty-buttons">
                 <button class="difficulty-btn" data-difficulty="easy">Easy (3-5 letters)</button>
@@ -33,7 +83,7 @@
                 <div id="difficulty-display">Difficulty: <span id="current-difficulty">-</span></div>
             </div>
             <div id="board-container"></div>
-            <div id="message-display"></div>
+            <div id="message-display" role="status" aria-live="polite"></div>
         </div>
 
         <div id="keyboard" class="game-section hidden">
@@ -78,6 +128,7 @@
         <div id="game-over" class="game-section hidden">
             <h2 id="game-result"></h2>
             <p id="correct-word"></p>
+            <p id="competition-result-score" class="competition-result-score hidden"></p>
             <div id="game-stats">
                 <div class="stat-item">
                     <span class="stat-label">Games Played</span>
@@ -199,9 +250,42 @@
                 </div>
             </div>
         </div>
+
+        <div id="profile-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+            <div class="modal-content profile-modal-content">
+                <button class="close-modal" id="close-profile" aria-label="Close profile">&times;</button>
+                <p class="eyebrow">YOUR ACCOUNT</p>
+                <h2 id="profile-title">Player profile</h2>
+                <div id="signed-out-profile" class="profile-modal-section">
+                    <p class="muted-copy">Sign in or create an account from the competition panel to manage your profile.</p>
+                </div>
+                <div id="signed-in-profile" class="profile-modal-section hidden">
+                    <label for="profile-username">Leaderboard username</label>
+                    <input id="profile-username" type="text" minlength="3" maxlength="20" autocomplete="nickname">
+                    <p class="field-hint">3–20 letters, numbers, or underscores.</p>
+                    <button id="save-profile-btn" class="chrome-button primary-button">Save username</button>
+                    <button id="sign-out-btn" class="chrome-button">Sign out</button>
+                    <p id="profile-feedback" class="muted-copy" role="status"></p>
+                </div>
+            </div>
+        </div>
+
+        <div id="leaderboard-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="leaderboard-title">
+            <div class="modal-content leaderboard-modal-content">
+                <button class="close-modal" id="close-leaderboard" aria-label="Close leaderboard">&times;</button>
+                <p class="eyebrow">MONTHLY SEASON</p>
+                <h2 id="leaderboard-title">Leaderboard</h2>
+                <p id="leaderboard-season" class="muted-copy"></p>
+                <div class="leaderboard-head"><span>RANK</span><span>PLAYER</span><span>POINTS</span></div>
+                <ol id="leaderboard-entries" class="leaderboard-entries"></ol>
+                <p id="leaderboard-status" class="muted-copy" role="status"></p>
+            </div>
+        </div>
     </div>
 
     <script src="word-lists.js"></script>
+    <script src="supabase-config.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="script.js"></script>
 </body>
 </html>
