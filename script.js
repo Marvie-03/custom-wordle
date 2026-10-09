@@ -13,6 +13,7 @@ let competitionMode = false;
 let competitionRequestInProgress = false;
 let competitionState = null;
 let profileUsername = '';
+let competitionCountdownInterval = null;
 let statistics = {
     gamesPlayed: 0,
     gamesWon: 0,
@@ -446,9 +447,18 @@ function showGameOverScreen(won) {
             ? 'Today’s competition puzzle is complete.'
             : `The word was: ${targetWord.toUpperCase()}`;
         competitionResultScore.classList.toggle('hidden', !competitionMode);
+        document.getElementById('competition-result-details').classList.toggle('hidden', !competitionMode);
+        document.getElementById('close-game-result').classList.toggle('hidden', !competitionMode);
+        playAgainBtn.classList.toggle('hidden', competitionMode);
         if (competitionMode) {
             competitionResultScore.textContent = `${competitionState.score} ${competitionState.score === 1 ? 'point' : 'points'} earned`;
+            document.getElementById('daily-result-heading').textContent = won ? 'Puzzle solved!' : 'Puzzle complete';
+            document.getElementById('daily-result-copy').textContent =
+                `${competitionState.guesses.length} ${competitionState.guesses.length === 1 ? 'guess' : 'guesses'} · ${competitionState.score} ${competitionState.score === 1 ? 'point' : 'points'} earned`;
+            renderCompetitionGuesses(document.getElementById('competition-result-guesses'), competitionState);
             document.getElementById('game-stats').classList.add('hidden');
+            renderDailyCompetitionSummary();
+            updateCompetitionCountdown();
         } else {
             document.getElementById('game-stats').classList.remove('hidden');
         }
@@ -582,6 +592,10 @@ function setupModalButtons() {
         difficultySelection.classList.remove('hidden');
         gameOverScreen.classList.add('hidden');
     });
+    document.getElementById('close-game-result').addEventListener('click', () => {
+        gameOverScreen.classList.add('hidden');
+        setGameMode('competition');
+    });
 
     document.getElementById('profile-btn').addEventListener('click', () => {
         profileModal.classList.remove('hidden');
@@ -617,13 +631,8 @@ function setupCompetition() {
     });
     document.getElementById('supabase-notice').classList.toggle('hidden', Boolean(supabaseClient));
     competitionAuth.classList.toggle('hidden', !supabaseClient);
-    document.getElementById('competition-date').textContent = new Date().toLocaleDateString(undefined, {
-        timeZone: 'UTC',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        timeZoneName: 'short'
-    });
+    updateCompetitionDate();
+    startCompetitionCountdown();
     if (!supabaseClient) {
         competitionStatus.textContent = 'Configure Supabase to sign in and play.';
         return;
@@ -721,13 +730,7 @@ async function loadProfile() {
     document.getElementById('profile-username').value = data.username;
     profileUsername = data.username;
     refreshSeasonPoints().catch(error => setCompetitionMessage(error.message));
-    document.getElementById('competition-date').textContent = new Date().toLocaleDateString(undefined, {
-        timeZone: 'UTC',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        timeZoneName: 'short'
-    });
+    loadDailyCompetition().catch(error => setCompetitionMessage(error.message));
 }
 
 async function saveProfile() {
@@ -759,6 +762,93 @@ async function refreshSeasonPoints() {
     const result = await competitionRequest({ action: 'leaderboard', season });
     const player = result.entries.find(entry => entry.isYou);
     document.getElementById('season-points').textContent = player ? player.points : '0';
+    if (!leaderboardModal.classList.contains('hidden')) renderLeaderboardEntries(result);
+}
+
+async function loadDailyCompetition() {
+    const result = await competitionRequest({ action: 'start' });
+    updateCompetitionDate();
+    competitionState = result;
+    if (result.completed) {
+        renderDailyCompetitionSummary();
+        competitionStatus.textContent = `Today's puzzle is complete — ${result.score} ${result.score === 1 ? 'point' : 'points'} earned.`;
+    } else {
+        document.getElementById('competition-completed-summary').classList.add('hidden');
+        competitionStartBtn.classList.remove('hidden');
+        competitionStartBtn.disabled = false;
+        competitionStartBtn.textContent = result.guesses.length
+            ? 'Resume today’s puzzle'
+            : 'Play today’s puzzle';
+        competitionStatus.textContent = result.guesses.length
+            ? `Game in progress · ${result.guesses.length} of ${result.maxGuesses} guesses used`
+            : 'Ready to play today’s puzzle.';
+    }
+}
+
+function updateCompetitionDate() {
+    document.getElementById('competition-date').textContent = new Date().toLocaleDateString(undefined, {
+        timeZone: 'UTC',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        timeZoneName: 'short'
+    });
+}
+
+function renderDailyCompetitionSummary() {
+    if (!competitionState || !competitionState.completed) return;
+    document.getElementById('competition-completed-summary').classList.remove('hidden');
+    competitionStartBtn.classList.add('hidden');
+    document.getElementById('daily-result-heading').textContent =
+        competitionState.won ? 'Puzzle solved!' : 'Puzzle complete';
+    document.getElementById('daily-result-copy').textContent =
+        `${competitionState.guesses.length} ${competitionState.guesses.length === 1 ? 'guess' : 'guesses'} · ${competitionState.score} ${competitionState.score === 1 ? 'point' : 'points'} earned`;
+    renderCompetitionGuesses(document.getElementById('daily-result-guesses'), competitionState);
+    updateCompetitionCountdown();
+}
+
+function renderCompetitionGuesses(container, state) {
+    container.replaceChildren();
+    state.guesses.forEach((guess, rowIndex) => {
+        const row = document.createElement('li');
+        row.className = 'result-guess-row';
+        const guessLabel = document.createElement('span');
+        guessLabel.className = 'result-guess-label';
+        guessLabel.textContent = `Guess ${rowIndex + 1}`;
+        const tiles = document.createElement('span');
+        tiles.className = 'result-guess-tiles';
+        for (let index = 0; index < guess.length; index++) {
+            const tile = document.createElement('span');
+            const status = state.feedback[rowIndex][index];
+            tile.className = `result-guess-tile ${status}`;
+            tile.textContent = guess[index].toUpperCase();
+            tile.setAttribute('aria-label', `${guess[index].toUpperCase()}: ${status}`);
+            tiles.appendChild(tile);
+        }
+        row.append(guessLabel, tiles);
+        container.appendChild(row);
+    });
+}
+
+function startCompetitionCountdown() {
+    if (competitionCountdownInterval) clearInterval(competitionCountdownInterval);
+    updateCompetitionCountdown();
+    competitionCountdownInterval = setInterval(updateCompetitionCountdown, 1000);
+}
+
+function updateCompetitionCountdown() {
+    const now = new Date();
+    const nextDay = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+    const remainingSeconds = Math.max(0, Math.floor((nextDay - now.getTime()) / 1000));
+    const hours = String(Math.floor(remainingSeconds / 3600)).padStart(2, '0');
+    const minutes = String(Math.floor((remainingSeconds % 3600) / 60)).padStart(2, '0');
+    const seconds = String(remainingSeconds % 60).padStart(2, '0');
+    const value = `${hours}:${minutes}:${seconds}`;
+    document.getElementById('daily-countdown').textContent = value;
+    document.getElementById('result-countdown').textContent = value;
+    if (remainingSeconds === 0 && supabaseClient && profileUsername) {
+        loadDailyCompetition().catch(error => setCompetitionMessage(error.message));
+    }
 }
 
 async function competitionRequest(payload) {
@@ -841,7 +931,7 @@ async function submitCompetitionGuess() {
             gameOver = true;
             showGameOverScreen(gameWon);
             setCompetitionMessage(`Puzzle complete — ${competitionState.score} points earned.`);
-            refreshSeasonPoints().catch(error => setCompetitionMessage(error.message));
+            refreshSeasonPoints().catch(error => setCompetitionMessage(`Score saved, but leaderboard refresh failed: ${error.message}`));
         }
     } catch (error) {
         showMessage(error.message);
@@ -865,22 +955,28 @@ async function openLeaderboard() {
     document.getElementById('leaderboard-season').textContent = season;
     try {
         const result = await competitionRequest({ action: 'leaderboard', season });
-        const player = result.entries.find(entry => entry.isYou);
-        document.getElementById('season-points').textContent = player ? player.points : '0';
-        result.entries.forEach(entry => {
-            const row = document.createElement('li');
-            row.className = `leaderboard-row${entry.isYou ? ' you' : ''}`;
-            for (const value of [entry.rank, entry.username, entry.points]) {
-                const cell = document.createElement('span');
-                cell.textContent = value;
-                row.appendChild(cell);
-            }
-            entriesElement.appendChild(row);
-        });
+        renderLeaderboardEntries(result);
         statusElement.textContent = result.entries.length ? '' : 'No completed games this season yet.';
     } catch (error) {
         statusElement.textContent = error.message;
     }
+}
+
+function renderLeaderboardEntries(result) {
+    const entriesElement = document.getElementById('leaderboard-entries');
+    const player = result.entries.find(entry => entry.isYou);
+    document.getElementById('season-points').textContent = player ? player.points : '0';
+    entriesElement.replaceChildren();
+    result.entries.forEach(entry => {
+        const row = document.createElement('li');
+        row.className = `leaderboard-row${entry.isYou ? ' you' : ''}`;
+        for (const value of [entry.rank, entry.username, entry.points]) {
+            const cell = document.createElement('span');
+            cell.textContent = value;
+            row.appendChild(cell);
+        }
+        entriesElement.appendChild(row);
+    });
 }
 
 function setCompetitionMessage(message) {

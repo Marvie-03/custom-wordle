@@ -3,7 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Custom Wordle Game</title>
+    <meta name="description" content="Play Custom Wordle: solve a shared daily word puzzle, earn points, and climb the monthly leaderboard. Or practice at your own pace in Training mode.">
+    <meta name="theme-color" content="#0c0f14">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://custom-wordle-eta.vercel.app/">
+    <title>Custom Wordle — Daily Word Competition</title>
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Custom Wordle">
+    <meta property="og:title" content="Custom Wordle — Daily Word Competition">
+    <meta property="og:description" content="Solve today's shared word puzzle, earn points, and climb the monthly leaderboard. Play daily competition or practice in Training mode.">
+    <meta property="og:url" content="https://custom-wordle-eta.vercel.app/">
+    <meta property="og:image" content="https://custom-wordle-eta.vercel.app/image.png">
+    <meta property="og:image:secure_url" content="https://custom-wordle-eta.vercel.app/image.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="1847">
+    <meta property="og:image:height" content="915">
+    <meta property="og:image:alt" content="Custom Wordle daily competition game with its dark chrome finish and metallic keyboard">
+    <meta property="og:locale" content="en_US">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Custom Wordle — Daily Word Competition">
+    <meta name="twitter:description" content="Solve today's shared word puzzle, earn points, and climb the monthly leaderboard.">
+    <meta name="twitter:image" content="https://custom-wordle-eta.vercel.app/image.png">
+    <meta name="twitter:image:alt" content="Custom Wordle daily competition game with its dark chrome finish and metallic keyboard">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
@@ -65,6 +86,20 @@
                     <button id="leaderboard-btn" class="chrome-button"><i class="fas fa-trophy"></i> Leaderboard</button>
                 </div>
             </div>
+            <div id="competition-completed-summary" class="completed-summary hidden">
+                <div class="completed-summary-heading">
+                    <div>
+                        <p class="eyebrow">TODAY'S GAME COMPLETE</p>
+                        <h3 id="daily-result-heading">Come back tomorrow</h3>
+                        <p id="daily-result-copy" class="muted-copy"></p>
+                    </div>
+                    <div class="result-countdown-panel">
+                        <span class="eyebrow">NEXT PUZZLE IN</span>
+                        <strong id="daily-countdown">24:00:00</strong>
+                    </div>
+                </div>
+                <ol id="daily-result-guesses" class="result-guesses"></ol>
+            </div>
             <p id="supabase-notice" class="setup-notice hidden">Competition setup is required. Configure <code>supabase-config.js</code> and follow <code>SUPABASE_SETUP.md</code>.</p>
         </section>
 
@@ -125,29 +160,39 @@
             </div>
         </div>
 
-        <div id="game-over" class="game-section hidden">
-            <h2 id="game-result"></h2>
-            <p id="correct-word"></p>
-            <p id="competition-result-score" class="competition-result-score hidden"></p>
-            <div id="game-stats">
-                <div class="stat-item">
-                    <span class="stat-label">Games Played</span>
-                    <span class="stat-value" id="games-played">0</span>
+        <div id="game-over" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="game-result">
+            <div class="modal-content game-over-content">
+                <h2 id="game-result"></h2>
+                <p id="correct-word"></p>
+                <p id="competition-result-score" class="competition-result-score hidden"></p>
+                <div id="competition-result-details" class="competition-result-details hidden">
+                    <div class="result-countdown-panel">
+                        <span class="eyebrow">NEXT DAILY PUZZLE IN</span>
+                        <strong id="result-countdown">24:00:00</strong>
+                    </div>
+                    <ol id="competition-result-guesses" class="result-guesses"></ol>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Win %</span>
-                    <span class="stat-value" id="win-percentage">0</span>
+                <div id="game-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">Games Played</span>
+                        <span class="stat-value" id="games-played">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Win %</span>
+                        <span class="stat-value" id="win-percentage">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Current Streak</span>
+                        <span class="stat-value" id="current-streak">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Max Streak</span>
+                        <span class="stat-value" id="max-streak">0</span>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Current Streak</span>
-                    <span class="stat-value" id="current-streak">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Max Streak</span>
-                    <span class="stat-value" id="max-streak">0</span>
-                </div>
+                <button id="play-again-btn">Play Again</button>
+                <button id="close-game-result" class="chrome-button hidden">Back to daily page</button>
             </div>
-            <button id="play-again-btn">Play Again</button>
         </div>
 
         <div id="stats-modal" class="modal hidden">
